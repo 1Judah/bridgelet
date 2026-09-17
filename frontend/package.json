@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "generate:types": "node scripts/generate-types.mjs"
+    "generate:types": "node scripts/generate-types.mjs",
+    "lhci": "lhci autorun"
   },
   "dependencies": {
     "@stellar/freighter-api": "^6.0.1",
@@ -18,6 +19,7 @@
     "resend": "^6.16.0"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "@storybook/nextjs-vite": "^10.4.6",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",

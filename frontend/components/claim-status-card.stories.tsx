@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { AccountStatus } from '@/lib/api/types';
 import { ClaimStatusCard } from './claim-status-card';
 
 const meta: Meta<typeof ClaimStatusCard> = {
@@ -11,13 +12,26 @@ export default meta;
 type Story = StoryObj<typeof ClaimStatusCard>;
 
 export const Unclaimed: Story = {
-  args: { status: 'available', amountStroops: '1000000000', assetCode: 'USDC', expiresAt: '2026-07-15T12:00:00Z' },
+  args: {
+    status: AccountStatus.PENDING_CLAIM,
+    amountStroops: '1000000000',
+    assetCode: 'USDC',
+    expiresAt: '2026-07-15T12:00:00Z',
+  },
 };
 
 export const Claimed: Story = {
-  args: { status: 'claimed' },
+  args: { status: AccountStatus.CLAIMED },
 };
 
 export const Expired: Story = {
-  args: { status: 'expired', expiresAt: '2026-06-01T00:00:00Z', supportEmail: 'support@bridgelet.com' },
+  args: { status: AccountStatus.EXPIRED, expiresAt: '2026-06-01T00:00:00Z', supportEmail: 'support@bridgelet.com' },
+};
+
+export const PendingPayment: Story = {
+  args: { status: AccountStatus.PENDING_PAYMENT },
+};
+
+export const Failed: Story = {
+  args: { status: AccountStatus.FAILED, supportEmail: 'support@bridgelet.com' },
 };

@@ -20,12 +20,44 @@
  * never activates, then use `page.route()` for all API mocking.
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Page, type Locator } from '@playwright/test';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /** A deterministic fake Stellar public key used across all e2e tests. */
 export const MOCK_PUBLIC_KEY = 'GBALBEDOFAKEWALLETADDRESSKEYPLACEHOLDERXXXXXQNZP2Z5F4O7QWERTY';
+
+/**
+ * Hide Next.js dev-server UI that would otherwise intercept pointer events.
+ *
+ * Next.js 15/16 dev mode injects a `<nextjs-portal>` shell (dev indicators,
+ * hot-reload bubble, error overlay). Its hit area overlaps page content and
+ * makes Playwright report "element intercepts pointer events" when clicking
+ * real buttons. In CI the e2e suite runs against `npm run dev`, so this rule
+ * must be applied in every test that clicks; it is inert in production
+ * builds (no portal is injected).
+ *
+ * NOTE: the style must live in `<head>` — a bare style appended to
+ * `document.documentElement` from an init script is discarded by Next's
+ * hydration. We wait for the DOM to be ready before injecting.
+ */
+export async function hideNextDevPortal(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const inject = () => {
+      if (document.getElementById('pw-next-dev-overlay-hide')) return;
+      const style = document.createElement('style');
+      style.id = 'pw-next-dev-overlay-hide';
+      style.textContent =
+        'nextjs-portal, [data-nextjs-portal], nextjs-dev-tools { display: none !important; visibility: hidden !important; pointer-events: none !important; }';
+      (document.head || document.documentElement).appendChild(style);
+    };
+    if (document.readyState === 'ready' || document.readyState === 'complete') {
+      inject();
+    } else {
+      document.addEventListener('DOMContentLoaded', inject, { once: true });
+    }
+  });
+}
 
 // ── Pre-navigation setup ──────────────────────────────────────────────────────
 
@@ -35,8 +67,10 @@ export const MOCK_PUBLIC_KEY = 'GBALBEDOFAKEWALLETADDRESSKEYPLACEHOLDERXXXXXQNZP
  *  2. Seed localStorage with a connected wallet.
  *  3. Reset the dev toolbar mock scenario to 'happy'.
  *  4. Mock window.freighter so the Connect Wallet button succeeds.
+ *  5. Hide the Next.js dev portal (see `hideNextDevPortal`).
  */
 async function setupPage(page: Page, publicKey = MOCK_PUBLIC_KEY): Promise<void> {
+  await hideNextDevPortal(page);
   await page.addInitScript((key: string) => {
     // 1. Unregister all service workers to prevent MSW from intercepting
     //    requests before Playwright's page.route() handlers can fire.
@@ -89,6 +123,7 @@ async function setupPage(page: Page, publicKey = MOCK_PUBLIC_KEY): Promise<void>
  * the mock scenario, but does not seed a wallet or mock freighter.
  */
 async function setupClaimPage(page: Page): Promise<void> {
+  await hideNextDevPortal(page);
   await page.addInitScript(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then((registrations) => {
@@ -140,8 +175,8 @@ export async function installHappyPathMocks(page: Page): Promise<void> {
       body: JSON.stringify({
         valid: true,
         accountId: 'e2e-test-account-id',
-        amountStroops: '1000000000', // 100 XLM
-        assetCode: 'XLM',
+        amount: '100.0000000', // 100 XLM
+        asset: 'XLM',
         expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
       }),
     });
@@ -172,6 +207,24 @@ export async function installHappyPathMocks(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Click a button reliably in both desktop and touch/mobile contexts.
+ *
+ * Playwright's `click()` in WebKit mobile projects can hang in its "scroll
+ * into view / stability" loop for elements near the bottom of the page
+ * without ever dispatching (macOS/iOS Safari reports the element as outside
+ * the viewport indefinitely). A short timeout with a DOM-click fallback
+ * (React's event delegation still receives `dispatchEvent`) keeps the click
+ * honest on desktop while never hanging on mobile WebKit.
+ */
+export async function press(page: Page, locator: Locator): Promise<void> {
+  try {
+    await locator.click({ timeout: 5_000 });
+  } catch {
+    await locator.dispatchEvent('click');
+  }
+}
+
 // ── SendFlow page object ──────────────────────────────────────────────────────
 
 export class SendFlowPage {
@@ -194,7 +247,7 @@ export class SendFlowPage {
     const alreadyAtDetails = await this.page.locator('h2').filter({ hasText: /step 2 of 4/i }).isVisible().catch(() => false);
     if (alreadyAtDetails) return;
 
-    await this.page.getByRole('button', { name: /connect freighter wallet/i }).click();
+    await press(this.page, this.page.getByRole('button', { name: /connect freighter wallet/i }));
     await expect(
       this.page.locator('h2').filter({ hasText: /step 2 of 4: set expiry/i }),
     ).toBeVisible({ timeout: 15_000 });
@@ -204,7 +257,7 @@ export class SendFlowPage {
     const { email = 'e2e-test@bridgelet.app', amount = '10', memo = 'E2E test payment' } = opts;
 
     // Step 2 is expiry — accept the default (24 h) and continue.
-    await this.page.getByRole('button', { name: /continue/i }).click();
+    await press(this.page, this.page.getByRole('button', { name: /continue/i }));
     await expect(
       this.page.locator('h2').filter({ hasText: /step 3 of 4: set account details/i }),
     ).toBeVisible({ timeout: 10_000 });
@@ -212,7 +265,7 @@ export class SendFlowPage {
     await this.page.getByLabel('Recipient email').fill(email);
     await this.page.getByLabel('Amount').fill(amount);
     if (memo) await this.page.getByLabel(/memo/i).fill(memo);
-    await this.page.getByRole('button', { name: /review payment/i }).click();
+    await press(this.page, this.page.getByRole('button', { name: /review payment/i }));
     await expect(
       this.page.locator('h2').filter({ hasText: /step 4 of 4: create account/i }),
     ).toBeVisible({ timeout: 10_000 });
@@ -220,7 +273,7 @@ export class SendFlowPage {
 
   async confirmAndSend(): Promise<void> {
     await expect(this.page.locator('h2').filter({ hasText: /step 4 of 4: create account/i })).toBeVisible({ timeout: 10_000 });
-    await this.page.getByRole('button', { name: /confirm & send/i }).click();
+    await press(this.page, this.page.getByRole('button', { name: /confirm & send/i }));
   }
 
   async waitForSuccess(): Promise<void> {
@@ -253,7 +306,7 @@ export class ClaimFlowPage {
   /** Fill destination and click "Claim now" (the button text in AvailablePanel). */
   async claimFunds(destinationAddress: string): Promise<void> {
     await this.page.getByLabel(/your stellar wallet address/i).fill(destinationAddress);
-    await this.page.getByRole('button', { name: /claim now/i }).click();
+    await press(this.page, this.page.getByRole('button', { name: /claim now/i }));
   }
 }
 

@@ -17,8 +17,8 @@ import {
   savePinCode,
   setBiometricEnabled,
   verifyPinCode,
-  type BiometricDeviceSupport,
 } from "../src/security/auth";
+import type { BiometricDeviceSupport } from "../src/security/auth";
 import { useThemeColors } from "../src/hooks/useThemeColors";
 
 export default function SecuritySetupScreen() {

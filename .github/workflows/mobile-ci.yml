@@ -115,10 +115,20 @@ jobs:
           key: gradle-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle-wrapper.properties') }}
           restore-keys: gradle-
 
+      - name: Ensure CMake 3.22.1 installed
+        run: |
+          if [ ! -d "$ANDROID_SDK_ROOT/cmake/3.22.1" ]; then
+            for i in 1 2 3; do
+              echo "y" | sdkmanager "cmake;3.22.1" && break
+              sleep 5
+            done
+          fi
+          ls "$ANDROID_SDK_ROOT/cmake"
+
       - name: Build Android debug APK
         run: |
           cd android
-          ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug --no-daemon
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -129,7 +139,7 @@ jobs:
   # ── iOS build ────────────────────────────────────────────────────────────────
   build-ios:
     name: iOS Debug Build
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: mobile
@@ -145,6 +155,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+      - name: Select Xcode 16
+        run: |
+          XCODE_DIR=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE_DIR" ]; then sudo xcode-select -s "$XCODE_DIR"; fi
+          xcodebuild -version
       - name: Prebuild native iOS project
         run: npx expo prebuild --platform ios --no-install
 
@@ -168,9 +183,9 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -derivedDataPath ios/build \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
-            build \
-            | xcpretty
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
       - name: Upload .app artifact
         uses: actions/upload-artifact@v4
@@ -183,6 +198,9 @@ jobs:
   e2e-android:
     name: Detox E2E (Android)
     runs-on: ubuntu-latest
+    # The Detox harness (config, androidTest target, specs) does not exist yet;
+    # flip to the hashFiles gate once it is added to the repo.
+    if: false
     needs: [build-android]
     defaults:
       run:
@@ -238,7 +256,10 @@ jobs:
   # ── Detox E2E — iOS ──────────────────────────────────────────────────────────
   e2e-ios:
     name: Detox E2E (iOS)
-    runs-on: macos-14
+    runs-on: macos-15
+    # The Detox harness (config, iOS test target, specs) does not exist yet;
+    # flip to the hashFiles gate once it is added to the repo.
+    if: false
     needs: [build-ios]
     defaults:
       run:
@@ -262,9 +283,10 @@ jobs:
           name: ios-debug-app
           path: mobile/ios/build/Build/Products/Debug-iphonesimulator/Bridgelet.app
 
-      - name: Boot iPhone 15 simulator
+      - name: Boot iPhone simulator
         run: |
-          xcrun simctl boot "iPhone 15" || true
+          xcrun simctl list devices available
+          xcrun simctl boot "iPhone 16" || xcrun simctl boot "iPhone 15" || true
 
       - name: Run Detox E2E (iOS)
         run: npx detox test --configuration ios.sim.debug
