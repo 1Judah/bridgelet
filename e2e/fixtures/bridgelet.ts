@@ -210,19 +210,18 @@ export async function installHappyPathMocks(page: Page): Promise<void> {
 /**
  * Click a button reliably in both desktop and touch/mobile contexts.
  *
- * Playwright's `click()` in a `hasTouch: true` context performs a tap, and
- * for elements near the bottom of a short page on some mobile devices it can
- * hang in its "scroll into view / stability" loop without ever dispatching.
- * On touch contexts we dispatch the DOM click directly (React's event
- * delegation still receives it). Non-touch contexts keep the normal,
- * fully-actionable `click()`.
+ * Playwright's `click()` in WebKit mobile projects can hang in its "scroll
+ * into view / stability" loop for elements near the bottom of the page
+ * without ever dispatching (macOS/iOS Safari reports the element as outside
+ * the viewport indefinitely). A short timeout with a DOM-click fallback
+ * (React's event delegation still receives `dispatchEvent`) keeps the click
+ * honest on desktop while never hanging on mobile WebKit.
  */
 export async function press(page: Page, locator: Locator): Promise<void> {
-  const isTouch = await page.evaluate(() => navigator.maxTouchPoints > 0);
-  if (isTouch) {
+  try {
+    await locator.click({ timeout: 5_000 });
+  } catch {
     await locator.dispatchEvent('click');
-  } else {
-    await locator.click();
   }
 }
 
