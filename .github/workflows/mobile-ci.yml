@@ -115,6 +115,16 @@ jobs:
           key: gradle-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle-wrapper.properties') }}
           restore-keys: gradle-
 
+      - name: Ensure CMake 3.22.1 installed
+        run: |
+          if [ ! -d "$ANDROID_SDK_ROOT/cmake/3.22.1" ]; then
+            for i in 1 2 3; do
+              echo "y" | sdkmanager "cmake;3.22.1" && break
+              sleep 5
+            done
+          fi
+          ls "$ANDROID_SDK_ROOT/cmake"
+
       - name: Build Android debug APK
         run: |
           cd android
