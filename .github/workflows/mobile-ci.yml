@@ -147,7 +147,7 @@ jobs:
         run: npm ci
       - name: Select Xcode 16
         run: |
-          XCODE_DIR=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | head -1)
+          XCODE_DIR=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
           if [ -n "$XCODE_DIR" ]; then sudo xcode-select -s "$XCODE_DIR"; fi
           xcodebuild -version
       - name: Prebuild native iOS project
