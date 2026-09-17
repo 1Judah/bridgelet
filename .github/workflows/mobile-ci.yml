@@ -199,8 +199,8 @@ jobs:
     name: Detox E2E (Android)
     runs-on: ubuntu-latest
     # The Detox harness (config, androidTest target, specs) does not exist yet;
-    # run only once it is added to the repo.
-    if: ${{ hashFiles('mobile/detox.config.*') != '' }}
+    # flip to the hashFiles gate once it is added to the repo.
+    if: false
     needs: [build-android]
     defaults:
       run:
@@ -258,8 +258,8 @@ jobs:
     name: Detox E2E (iOS)
     runs-on: macos-15
     # The Detox harness (config, iOS test target, specs) does not exist yet;
-    # run only once it is added to the repo.
-    if: ${{ hashFiles('mobile/detox.config.*') != '' }}
+    # flip to the hashFiles gate once it is added to the repo.
+    if: false
     needs: [build-ios]
     defaults:
       run:
