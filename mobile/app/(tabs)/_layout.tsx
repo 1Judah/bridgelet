@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { Bell, Home, Search, User } from 'lucide-react-native';
 
-import { useNotificationBadge } from '../../src/hooks/useNotificationBadge';
+import { useNotificationBadge } from '../src/hooks/useNotificationBadge';
 
 export default function TabLayout() {
   const notificationBadge = useNotificationBadge();

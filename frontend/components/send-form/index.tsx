@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ConnectStep } from './steps/connect-step';
+import { ExpiryStep } from './steps/expiry-step';
 import { DetailsStep } from './steps/details-step';
 import { ConfirmStep } from './steps/confirm-step';
 
-export type SendFormStep = 'connect' | 'details' | 'confirm';
+export type SendFormStep = 'connect' | 'expiry' | 'details' | 'confirm';
 
 export interface SendFormState {
   publicKey: string;
+  expiresInHours: number;
   recipientEmail: string;
   amountXlm: string;
   assetCode: string;
@@ -17,18 +19,20 @@ export interface SendFormState {
 
 const INITIAL_STATE: SendFormState = {
   publicKey: '',
+  expiresInHours: 24,
   recipientEmail: '',
   amountXlm: '',
   assetCode: 'XLM',
   memo: '',
 };
 
-const STEP_ORDER: SendFormStep[] = ['connect', 'details', 'confirm'];
+const STEP_ORDER: SendFormStep[] = ['connect', 'expiry', 'details', 'confirm'];
 
 const STEP_LABELS: Record<SendFormStep, string> = {
-  connect: 'Step 1 of 3: Connect Wallet',
-  details: 'Step 2 of 3: Payment Details',
-  confirm: 'Step 3 of 3: Confirm & Send',
+  connect: 'Step 1 of 4: Connect Wallet',
+  expiry: 'Step 2 of 4: Set Expiry',
+  details: 'Step 3 of 4: Set Account Details',
+  confirm: 'Step 4 of 4: Create Account',
 };
 
 /**
@@ -116,6 +120,14 @@ export function SendForm() {
             updateState({ publicKey: key });
             goNext();
           }}
+        />
+      )}
+      {step === 'expiry' && (
+        <ExpiryStep
+          expiresInHours={formState.expiresInHours}
+          onChange={(hours) => updateState({ expiresInHours: hours })}
+          onBack={goBack}
+          onNext={goNext}
         />
       )}
       {step === 'details' && (

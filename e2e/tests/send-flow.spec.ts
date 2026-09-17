@@ -9,105 +9,84 @@
  *   5. Review and confirm
  *   6. Verify success state
  *
- * These tests are deterministic — all API calls are intercepted via
- * `page.route()` and the Freighter extension is mocked via
- * `addInitScript`.
+ * These tests reuse the shared `sendPage` fixture (freighter postMessage
+ * mock + happy-path API route interceptors) so they stay deterministic.
  */
 
-import { test, expect, type Page } from '@playwright/test';
-
-const MOCK_FREIGHTER_ADDRESS = 'GBC7SNSD7S55SD3QNVA5PRYXK5MI6QPOHBTYJVU6QPYFZIWI6GH5C5L5';
+import { test, expect, press } from '../fixtures/bridgelet';
 
 test.describe('Send flow', () => {
-  test.beforeEach(async ({ page }) => {
-    // Mock Freighter extension
-    await page.addInitScript(() => {
-      (window as any).freighter = {
-        isConnected: () => Promise.resolve(true),
-        getAddress: () => Promise.resolve(MOCK_FREIGHTER_ADDRESS),
-        getNetwork: () => Promise.resolve({ network: 'TESTNET', networkPassphrase: 'Test SDF Network ; September 2015' }),
-        signTransaction: (_tx: string, opts: any) => Promise.resolve({ signedTxXDR: _tx, signerAddress: MOCK_FREIGHTER_ADDRESS }),
-      };
-    });
-
-    // Mock API responses
-    await page.route('**/api/accounts/**', (route) => {
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 'mock-account-id',
-          status: 'created',
-          stellarAddress: 'GAAP5PZ3EHIFX7RJZXW6S6XQP4GKLDG5M4E5YJ4FMLE2JMIFX7C3R5RY',
-          claimUrl: 'http://localhost:3000/claim/e2e-send-flow-token',
-          createdAt: new Date().toISOString(),
-        }),
-      });
-    });
-  });
-
-  test('navigates through all send form steps', async ({ page }) => {
-    await page.goto('/send');
+  test('navigates through all send form steps', async ({ sendPage, page }) => {
+    await sendPage.goto();
 
     // Step 1: Connect wallet
-    await expect(page.getByText(/connect your wallet/i)).toBeVisible();
-    await page.getByRole('button', { name: /connect/i }).first().click();
-
-    // After connecting, the wallet address should be visible
-    await expect(page.getByText(MOCK_FREIGHTER_ADDRESS.slice(0, 4))).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole('heading', { name: /step 1 of 4: connect wallet/i }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /connect freighter wallet/i })).toBeVisible();
+    await sendPage.connectWallet();
 
     // Step 2: Expiry configuration
-    await expect(page.getByText(/expiry|expir/i)).toBeVisible({ timeout: 10_000 });
-    await page.getByRole('button', { name: /next|continue/i }).first().click();
+    await expect(
+      page.getByRole('heading', { name: /step 2 of 4: set expiry/i }),
+    ).toBeVisible();
+    await expect(page.getByRole('radio', { name: /24 hours/i })).toBeChecked();
+    await press(page, page.getByRole('button', { name: /continue/i }));
 
     // Step 3: Recipient details
-    await expect(page.getByLabel(/email/i)).toBeVisible({ timeout: 10_000 });
-    await page.getByLabel(/email/i).fill('test@example.com');
-    await page.getByLabel(/amount/i).fill('10');
-    await page.getByRole('button', { name: /next|continue/i }).first().click();
+    await expect(
+      page.getByRole('heading', { name: /step 3 of 4: set account details/i }),
+    ).toBeVisible();
+    await page.getByLabel('Recipient email').fill('test@example.com');
+    await page.getByLabel('Amount').fill('10');
+    await press(page, page.getByRole('button', { name: /review payment/i }));
 
     // Step 4: Confirmation
-    await expect(page.getByText(/confirm|review/i)).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole('heading', { name: /step 4 of 4: create account/i }),
+    ).toBeVisible();
+    await expect(page.getByText('test@example.com')).toBeVisible();
+
+    // Submit the payment and confirm the success banner appears.
+    await sendPage.confirmAndSend();
+    await sendPage.waitForSuccess();
   });
 
-  test('validates required fields before proceeding', async ({ page }) => {
-    await page.goto('/send');
+  test('validates required fields before proceeding', async ({ sendPage, page }) => {
+    await sendPage.goto();
+    await sendPage.connectWallet();
+    await press(page, page.getByRole('button', { name: /continue/i }));
 
-    // Connect wallet first
-    await page.getByRole('button', { name: /connect/i }).first().click();
-    await expect(page.getByText(MOCK_FREIGHTER_ADDRESS.slice(0, 4))).toBeVisible({ timeout: 10_000 });
+    // Try to proceed without filling in details.
+    await press(page, page.getByRole('button', { name: /review payment/i }));
 
-    // Skip to details step
-    await page.getByRole('button', { name: /next|continue/i }).first().click();
-
-    // Try to proceed without filling in details
-    await page.getByRole('button', { name: /next|continue/i }).first().click();
-
-    // Should show validation errors
-    await expect(page.getByText(/required|invalid|enter/i)).toBeVisible({ timeout: 5_000 });
+    // Should show a validation error and stay on the details step.
+    await expect(
+      page.getByRole('alert').filter({ hasText: /required|invalid|enter/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /step 3 of 4: set account details/i }),
+    ).toBeVisible();
   });
 
-  test('shows wallet connection prompt when not connected', async ({ page }) => {
-    // Override Freighter mock to report not connected
-    await page.addInitScript(() => {
-      (window as any).freighter = {
-        isConnected: () => Promise.resolve(false),
-        getAddress: () => Promise.reject(new Error('Not connected')),
-      };
-    });
+  test('shows wallet connection prompt when not connected', async ({ sendPage, page }) => {
+    await sendPage.goto();
 
-    await page.goto('/send');
-
-    // Should show connect wallet prompt
-    await expect(page.getByText(/connect.*wallet/i)).toBeVisible();
+    // The connect step is shown initially, before the wallet is connected.
+    await expect(
+      page.getByRole('heading', { name: /step 1 of 4: connect wallet/i }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /connect freighter wallet/i })).toBeVisible();
+    await expect(
+      page.locator('p', { hasText: /connect your wallet to authorise payments/i }),
+    ).toBeVisible();
   });
 
-  test('displays correct step indicators', async ({ page }) => {
-    await page.goto('/send');
+  test('displays correct step indicators', async ({ sendPage, page }) => {
+    await sendPage.goto();
 
-    // Should show step indicators (e.g., "Step 1", "Step 2", etc.)
-    // or progress dots
-    const steps = page.getByText(/step \d|connect|expiry|details|confirm/i);
-    await expect(steps.first()).toBeVisible({ timeout: 5_000 });
+    for (const label of ['1. Connect', '2. Expiry', '3. Details', '4. Confirm']) {
+      await expect(page.getByText(label)).toBeVisible({ timeout: 5_000 });
+    }
   });
 });

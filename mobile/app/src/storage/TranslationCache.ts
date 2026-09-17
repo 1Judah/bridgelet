@@ -131,7 +131,7 @@ class TranslationCacheImpl {
         return [];
       }
 
-      let cache: CachedTranslation[] = JSON.parse(data);
+      const cache: CachedTranslation[] = JSON.parse(data);
       const now = Date.now();
 
       // Filter out expired entries

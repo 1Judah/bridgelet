@@ -44,6 +44,19 @@ export function ConfirmStep({ state, onBack }: ConfirmStepProps) {
           A claim link has been sent to <strong>{state.recipientEmail}</strong>. They have 24
           hours to claim their funds.
         </p>
+
+        {claimUrl && (
+          <p className="mt-2 text-sm text-green-700">
+            Send the recipient this link:{' '}
+            <a
+              href={claimUrl}
+              data-testid="claim-link"
+              className="font-medium underline underline-offset-2 hover:text-green-900"
+            >
+              {claimUrl}
+            </a>
+          </p>
+        )}
         
         {isSupported && claimUrl && (
           <div className="mt-4 border-t border-green-200 pt-4">

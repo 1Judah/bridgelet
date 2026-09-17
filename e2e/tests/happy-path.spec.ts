@@ -22,7 +22,7 @@
  * See e2e/README.md for full setup instructions.
  */
 
-import { test, expect } from '../fixtures/bridgelet';
+import { test, expect, press } from '../fixtures/bridgelet';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -114,7 +114,7 @@ test.describe('Send → Claim → Sweep (happy path)', () => {
     });
 
     await page.getByLabel(/your stellar wallet address/i).fill(DESTINATION_ADDRESS);
-    await page.getByRole('button', { name: /claim now/i }).click();
+    await press(page, page.getByRole('button', { name: /claim now/i }));
 
     // After a successful claim the ClaimStatusCard shows the CLAIMED state.
     await expect(
