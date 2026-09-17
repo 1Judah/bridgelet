@@ -175,8 +175,8 @@ export async function installHappyPathMocks(page: Page): Promise<void> {
       body: JSON.stringify({
         valid: true,
         accountId: 'e2e-test-account-id',
-        amountStroops: '1000000000', // 100 XLM
-        assetCode: 'XLM',
+        amount: '100.0000000', // 100 XLM
+        asset: 'XLM',
         expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
       }),
     });

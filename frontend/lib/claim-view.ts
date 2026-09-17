@@ -26,6 +26,28 @@ export interface ClaimView {
 }
 
 /**
+ * Convert a decimal lumens amount (e.g. "100.0000000") to stroops without
+ * floating point math. 1 XLM = 10_000_000 stroops.
+ */
+export function decimalToStroops(decimal: string): string {
+  const [intPart = '0', fracPart = ''] = decimal.split('.');
+  const negative = intPart.startsWith('-') ? '-' : '';
+  const int = negative ? intPart.slice(1) : intPart;
+  const frac = fracPart.padEnd(7, '0').slice(0, 7);
+  const digits = `${int}${frac}`.replace(/^0+(?=\d)/, '');
+  return `${negative}${digits || '0'}`;
+}
+
+/**
+ * Derive an ISO 4217-style asset code from the backend's asset identifier:
+ * "native" → "XLM", "USDC:GBUQ..." → "USDC", "XLM" → "XLM".
+ */
+export function assetCodeFromAsset(asset: string): string {
+  const code = asset.split(':')[0] ?? asset;
+  return code === 'native' ? 'XLM' : code;
+}
+
+/**
  * Load the current view state for a claim token.
  *
  * Maps backend status codes onto the account lifecycle so the UI can render
@@ -41,10 +63,9 @@ export async function loadClaimView(token: string): Promise<ClaimView> {
     const resp = await getDefaultClient().verifyClaim(token);
     return {
       status: AccountStatus.PENDING_CLAIM,
-      amountStroops: resp.amountStroops,
-      assetCode: resp.assetCode,
+      amountStroops: resp.amount != null ? decimalToStroops(resp.amount) : undefined,
+      assetCode: resp.asset != null ? assetCodeFromAsset(resp.asset) : undefined,
       expiresAt: resp.expiresAt,
-      memo: resp.memo,
     };
   } catch (err) {
     if (err instanceof BridgeletApiError) {

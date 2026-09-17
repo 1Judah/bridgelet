@@ -1,5 +1,5 @@
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
-import type { AccountStatus, RedeemClaimResponse, VerifyClaimResponse } from '@/lib/api/types';
+import type { RedeemClaimResponse, VerifyClaimResponse } from '@/lib/api/types';
 
 export interface BridgeletClientOptions {
   /** Base URL of the bridgelet-sdk backend. Empty string resolves relative to the app origin. */
@@ -150,13 +150,6 @@ export class BridgeletClient {
       method: 'POST',
       body: JSON.stringify({ claimToken, destinationAddress }),
     });
-  }
-
-  /** Current status of a claim (used while polling after an ambiguous submit). */
-  getClaimStatus(claimToken: string): Promise<{ status: AccountStatus }> {
-    return this.request<{ status: AccountStatus }>(
-      `/claims/status/${encodeURIComponent(claimToken)}`,
-    );
   }
 }
 

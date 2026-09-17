@@ -20,21 +20,21 @@ export enum AccountStatus {
 
 /**
  * Verified claim details returned by POST /claims/verify when a token is
- * valid (HTTP 200). Mirrors the backend's claim-verification payload.
+ * valid (HTTP 200). Mirrors the backend's claim-verification payload
+ * (ClaimVerificationResponseDto): the amount is in decimal (lumens) units
+ * and the asset is an issuer-qualified identifier, not stroops + ISO code.
  */
 export interface VerifyClaimResponse {
   /** Whether the claim token is valid and not yet redeemed. */
   valid: boolean;
   /** Backend account id hosting the claim, when known. */
   accountId?: string;
-  /** Claim amount in stroops (1 XLM = 10_000_000). */
-  amountStroops: string;
-  /** ISO 4217 asset code, e.g. "XLM" or "USDC". */
-  assetCode: string;
+  /** Claim amount in decimal units (e.g. "100.0000000"). */
+  amount: string;
+  /** Asset identifier (e.g. "native" or "USDC:GBUQWP3BOUZX34ULNQG23RQ6F4BFSRXVZ6GM2FYCVJW5M2D4D811E4B2"). */
+  asset: string;
   /** ISO 8601 timestamp after which the token expires. */
   expiresAt: string;
-  /** Optional sender memo. */
-  memo?: string;
 }
 
 /** Response from POST /claims/redeem — the result of a sweep. */
@@ -55,6 +55,10 @@ export interface RedeemClaimResponse {
   message?: string;
   /** Whether only part of the balance could be swept. */
   isPartial?: boolean;
+  /** Contract authorization hash from the SweepController (present on partial sweeps). */
+  contractAuthHash?: string;
+  /** Horizon error message; populated only when isPartial is true. */
+  error?: string;
 }
 
 /**

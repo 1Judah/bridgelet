@@ -28,10 +28,10 @@ const SPEC_ENDPOINTS = [
 const REQUIRED_ENDPOINTS = [
   { label: 'Verify a claim token', method: 'post', pathPattern: '/claims/verify' },
   { label: 'Redeem / sweep a claim', method: 'post', pathPattern: '/claims/redeem' },
-  { label: 'Poll claim status', method: 'get', pathPattern: '/claims/status' },
+  { label: 'Fetch claim details', method: 'get', pathPattern: '/claims/{id}' },
 ];
 
-const VERIFY_RESPONSE_FIELDS = ['valid', 'amountStroops', 'assetCode', 'expiresAt'];
+const VERIFY_RESPONSE_FIELDS = ['valid', 'amount', 'asset', 'expiresAt'];
 const REDEEM_RESPONSE_FIELDS = ['success', 'txHash', 'amountSwept', 'asset', 'destination', 'sweptAt'];
 
 /**

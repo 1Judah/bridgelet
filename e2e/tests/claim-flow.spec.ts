@@ -23,8 +23,8 @@ const DESTINATION_ADDRESS = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZL
 const VERIFY_200_BODY = {
   valid: true,
   accountId: 'mock-account-id',
-  amountStroops: '1000000000',
-  assetCode: 'XLM',
+  amount: '100.0000000',
+  asset: 'XLM',
   expiresAt: new Date(Date.now() + 3600000).toISOString(),
 };
 
