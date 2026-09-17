@@ -128,7 +128,7 @@ jobs:
       - name: Build Android debug APK
         run: |
           cd android
-          ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug --no-daemon
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -198,6 +198,9 @@ jobs:
   e2e-android:
     name: Detox E2E (Android)
     runs-on: ubuntu-latest
+    # The Detox harness (config, androidTest target, specs) does not exist yet;
+    # run only once it is added to the repo.
+    if: hashFiles('mobile/detox.config.*') != ''
     needs: [build-android]
     defaults:
       run:
@@ -254,6 +257,9 @@ jobs:
   e2e-ios:
     name: Detox E2E (iOS)
     runs-on: macos-15
+    # The Detox harness (config, iOS test target, specs) does not exist yet;
+    # run only once it is added to the repo.
+    if: hashFiles('mobile/detox.config.*') != ''
     needs: [build-ios]
     defaults:
       run:
