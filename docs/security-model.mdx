@@ -101,6 +101,39 @@ Recipients are unauthenticated. The claim token embedded in the URL is the sole 
 
 ## Claim Token Security
 
+### Claim Token Placement — Path vs Fragment
+
+The claim credential is embedded in the URL **path segment** (`/claim/<token>`) rather than a URL fragment (`/claim#token=<token>`) or a query parameter (`/claim?token=<token>`). This placement was an explicit design choice with the following rationale and mitigations:
+
+**Why path segment, not fragment:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Path segment — `/claim/<token>` (current) | Fully server-routable; SSR can validate/serve the correct page without JS; works reliably across all browsers, link-unfurlers, and QR codes | Token appears in `Referer` header sent to sub-resource origins; appears in server access logs; stored in browser history |
+| URL fragment — `/claim#token=<token>` | Never sent to the server or in `Referer` by spec; not stored in standard server logs | Requires client-side JS to extract before any API call; degrades badly without JS; many QR-code and messaging clients strip or mangle fragments; link previews break |
+| Query string — `/claim?token=<token>` | Fully server-routable | Same `Referer` exposure as path; additionally logged by many WAF/CDN products that strip fragments but preserve query strings |
+
+The **URL fragment approach offers stronger passive-leak protection** (the token is never transmitted to the server or in `Referer`) but has unacceptable reliability tradeoffs for a financial product: fragment stripping is common in SMS apps, email clients, and QR code readers — exactly the channels Bridgelet recipients use. A broken claim link for a non-technical user is a worse outcome than a mitigated-but-present referrer-leak risk.
+
+**Mitigations applied for the path-segment placement:**
+
+1. **`Referrer-Policy: no-referrer`** — Set via `next.config.js` `headers()` on the `/claim/:token` route. This instructs the browser not to send a `Referer` header for any navigation away from or sub-resource loaded on the claim page. This is the primary mitigation.
+2. **No third-party scripts or CDNs on the claim page** — The claim page must not load Google Fonts, analytics beacons, or any cross-origin sub-resource that would receive a `Referer`. Any future addition of such resources requires explicit security review.
+3. **Server-side access log redaction** — Production deployments of `bridgelet-sdk` and any proxy/CDN layer (e.g., CloudFront, Nginx, Vercel) must redact or exclude request path values that match `/claim/<token>` patterns from stored logs.
+4. **Short-lived tokens** — Default token expiry is 30 days. Reducing this window for high-value claims limits the exposure period if a token does leak.
+
+**Decision:** Keep path-segment placement with mitigations (1)–(4) above. Revisit fragment placement only if a reliable fragment-preservation guarantee can be provided end-to-end for the supported share channels.
+
+### Client-Side QR Code Rendering Guarantee
+
+To prevent credential leakage to third-party infrastructure, QR code generation for claim links MUST take place entirely client-side within the browser:
+
+- **Local SVG/Canvas Rendering**: QR code elements (e.g. `QRCode` in `frontend/components/qr-code.tsx`) generate SVG matrix grids strictly from browser DOM data in client memory.
+- **Zero External API Calls**: Transmitting claim URLs or tokens to third-party QR generation web services (such as `api.qrserver.com`, `chart.googleapis.com`, or external microservices) is strictly prohibited.
+- **Automated Verification**: Automated unit tests (e.g., `frontend/components/qr-code.test.tsx`) enforce that rendering a claim link as a QR code triggers zero outbound HTTP requests.
+
+---
+
 Claim tokens are **JWTs signed by the backend** using a secret the frontend never sees.
 
 **Token lifecycle:**
@@ -186,6 +219,7 @@ The table below covers threats identified in the original security model PDF, up
 | T-13 | **Sweep execution without authorization** — backend sweeps funds to wrong address or without valid claim | Backend logic error / compromised process | Sweep requires: (a) valid unexpired claim token, (b) server-side signature with ephemeral private key. No client-supplied authorization credential. | ⚠️ **MVP STUB — see §8** |
 | T-14 | **Stellar network outage** — funds locked in ephemeral account during network disruption | External (Stellar) | Graceful error UI with retry. Ephemeral account persists until claimed or expired; funds are recoverable once network resumes. | ✅ Mitigated (degraded mode) |
 | T-15 | **Private key leak from generated wallet** — `generateNewWallet()` exposes a raw secret key in-browser | Frontend code path | `generateNewWallet()` in `lib/wallet.ts` returns the secret key directly to the caller. This flow is not presented in the UI by default. | ⚠️ Partial — secret handling requires audit |
+| T-16 | **Claim token leaks via `Referer` header** — claim token in URL path forwarded to third-party sub-resources or CDN logs | `Referer` header on `/claim/<token>` page; browser history; server access logs | `Referrer-Policy: no-referrer` set in `next.config.js` for `/claim/:token`. No third-party scripts permitted on claim page. Log redaction required in production deployments. Token placement rationale documented in §Claim Token Security. | ✅ Mitigated (header set; see §Claim Token Security for full mitigation list) |
 
 ---
 

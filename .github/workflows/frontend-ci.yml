@@ -29,11 +29,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        working-directory: frontend
 
       - name: Detect package scripts
         id: pkg
-        working-directory: frontend
         run: |
           node -e '
           const fs = require("fs");
@@ -41,26 +39,93 @@ jobs:
           const s = pkg.scripts || {};
           const out = [
             "has_lint=" + ("lint" in s),
-            "has_type_check=" + ("type-check" in s),
+            "has_typecheck=" + ("typecheck" in s),
             "has_build=" + ("build" in s),
-            "has_test=" + ("test" in s)
+            "has_test=" + ("test" in s),
+            "has_e2e=" + ("test:e2e" in s)
           ].join("\n");
           fs.appendFileSync(process.env.GITHUB_OUTPUT, out + "\n");'
+
       - name: Run lint
         if: steps.pkg.outputs.has_lint == 'true'
         run: npm run lint
-        working-directory: frontend
 
       - name: Run TypeScript type-check
-        if: steps.pkg.outputs.has_type_check == 'true'
-        run: npm run type-check
-        working-directory: frontend
+        if: steps.pkg.outputs.has_typecheck == 'true'
+        run: npm run typecheck
 
-      - name: Run tests
+      - name: Run unit tests
         if: steps.pkg.outputs.has_test == 'true'
         run: npm test
-        working-directory: frontend
+
+      - name: Run accessibility (axe-core) tests
+        if: steps.pkg.outputs.has_test == 'true'
+        run: npm run test:a11y:ci
+
+      - name: Run unit tests with coverage
+        if: steps.pkg.outputs.has_test == 'true'
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        if: steps.pkg.outputs.has_test == 'true'
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+          fail_ci_if_error: false
+
+      - name: Comment coverage on PR
+        if: steps.pkg.outputs.has_test == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const lcovPath = 'frontend/coverage/lcov.info';
+            if (!fs.existsSync(lcovPath)) { core.info('No lcov found'); return; }
+            const lcov = fs.readFileSync(lcovPath, 'utf-8');
+            const lf = (lcov.match(/^LF:(\d+)$/gm) || []).map(m => +m.split(':')[1]);
+            const lh = (lcov.match(/^LH:(\d+)$/gm) || []).map(m => +m.split(':')[1]);
+            const totalLf = lf.reduce((a, b) => a + b, 0);
+            const totalLh = lh.reduce((a, b) => a + b, 0);
+            const pct = totalLf ? (totalLh / totalLf * 100).toFixed(2) : 0;
+            const body = `## Coverage Report\n\n**Total line coverage: ${pct}%**\n\nCoverage is informational only; no hard gate applied yet.`;
+            fs.writeFileSync('coverage-comment.md', body);
+
+      - name: Post coverage summary as PR comment
+        if: steps.pkg.outputs.has_test == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.existsSync('coverage-comment.md')
+              ? fs.readFileSync('coverage-comment.md', 'utf-8')
+              : '## Coverage Report\n\nNo coverage data generated.';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
 
       - name: Build app
         run: npm run build
-        working-directory: frontend
+
+      - name: Install Playwright browsers
+        if: steps.pkg.outputs.has_e2e == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests against built app
+        if: steps.pkg.outputs.has_e2e == 'true'
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: failure() && steps.pkg.outputs.has_e2e == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7

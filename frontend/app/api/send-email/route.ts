@@ -1,25 +1,21 @@
-import { NextResponse } from 'next/server'
-import { Resend } from 'resend'
-
+import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
 
 export async function POST(request: Request) {
-  const resend = new Resend(process.env['RESEND_API_KEY'])
-  const body = await request.json()
-  
-  const { to, subject, html, text } = body
+  const resend = new Resend(process.env['RESEND_API_KEY']);
+  const body = await request.json();
+
+  const { to, subject, html, text } = body;
 
   if (!to || !subject || (!html && !text)) {
     return NextResponse.json(
       { error: 'Missing required fields: to, subject, and html or text' },
-      { status: 400 }
-    )
+      { status: 400 },
+    );
   }
 
   if (!process.env['RESEND_API_KEY']) {
-    return NextResponse.json(
-      { error: 'Email service not configured' },
-      { status: 501 }
-    )
+    return NextResponse.json({ error: 'Email service not configured' }, { status: 501 });
   }
 
   try {
@@ -28,15 +24,12 @@ export async function POST(request: Request) {
       to,
       subject,
       html,
-      text
-    })
+      text,
+    });
 
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Failed to send email:', error)
-    return NextResponse.json(
-      { error: 'Failed to send email' },
-      { status: 500 }
-    )
+    console.error('Failed to send email:', error);
+    return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
   }
 }

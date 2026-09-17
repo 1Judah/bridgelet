@@ -1,0 +1,294 @@
+name: Cross-Repo Compatibility
+
+# Verifies that the bridgelet-sdk commit pinned in compatibility.json still
+# works with this frontend, per the process documented in
+# docs/compatibility.md. This is deliberately a *separate* workflow from
+# e2e.yml: e2e.yml exercises the frontend against MSW mocks (fast, no
+# external dependency) on every relevant PR, while this workflow exercises
+# it against a real bridgelet-sdk checkout, which is slower and depends on
+# secrets that aren't available to fork PRs.
+#
+# See docs/compatibility.md#required-ci-secrets for what BRIDGELET_SDK_*
+# unlocks and what still gets checked without it.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'compatibility.json'
+      - 'docs/compatibility.md'
+      - 'e2e/**'
+      - 'frontend/app/**'
+      - 'frontend/components/**'
+      - 'frontend/lib/**'
+
+  schedule:
+    # Daily, offset from e2e.yml's 06:00 run so the two don't contend for
+    # runners.
+    - cron: '0 7 * * *'
+
+  workflow_dispatch: {}
+
+jobs:
+  compatibility:
+    name: Verify pinned bridgelet-sdk combination
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bridgelet_user
+          POSTGRES_PASSWORD: bridgelet_pass
+          POSTGRES_DB: bridgelet
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bridgelet_user -d bridgelet"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout bridgelet (frontend)
+        uses: actions/checkout@v4
+        with:
+          path: bridgelet
+
+      # ── Resolve the pinned bridgelet-sdk commit ──────────────────────────────
+
+      - name: Read pinned bridgelet-sdk ref from compatibility.json
+        id: pin
+        working-directory: bridgelet
+        run: |
+          node -e '
+            const c = require("./compatibility.json");
+            const sdk = c.verified && c.verified.bridgeletSdk;
+            if (!sdk || !sdk.commit || !sdk.repo) {
+              console.error("compatibility.json is missing verified.bridgeletSdk.{repo,commit}");
+              process.exit(1);
+            }
+            console.log(`repo=${sdk.repo}`);
+            console.log(`commit=${sdk.commit}`);
+            console.log(`version=${sdk.version}`);
+          ' >> "$GITHUB_OUTPUT"
+
+      - name: Checkout pinned bridgelet-sdk commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.pin.outputs.repo }}
+          ref: ${{ steps.pin.outputs.commit }}
+          path: bridgelet-sdk
+
+      # ── Node setup ──────────────────────────────────────────────────────────
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            bridgelet/frontend/package-lock.json
+            bridgelet/e2e/package-lock.json
+            bridgelet-sdk/package-lock.json
+
+      # ── Install ────────────────────────────────────────────────────────────
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: bridgelet/frontend
+
+      - name: Install e2e dependencies
+        run: npm ci
+        working-directory: bridgelet/e2e
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: bridgelet/e2e
+
+      - name: Install bridgelet-sdk dependencies
+        run: npm ci
+        working-directory: bridgelet-sdk
+
+      # ── Determine how much of the job we can actually run ────────────────────
+      #
+      # BRIDGELET_SDK_* secrets carry a funded Stellar testnet keypair and
+      # live bridgelet-core contract IDs. They aren't available on fork PRs
+      # and must be provisioned by a maintainer (docs/compatibility.md#required-ci-secrets).
+      # Without them we still verify install/build/migrate/boot below —
+      # we just can't assert on the funded send -> claim -> sweep flow.
+
+      - name: Check whether live-testnet secrets are configured
+        id: secrets
+        env:
+          HAS_FUNDING_SECRET: ${{ secrets.BRIDGELET_SDK_FUNDING_ACCOUNT_SECRET != '' }}
+        run: echo "configured=${HAS_FUNDING_SECRET}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate a throwaway keypair for the boot-only smoke path
+        if: steps.secrets.outputs.configured != 'true'
+        id: throwaway
+        working-directory: bridgelet-sdk
+        run: |
+          node -e '
+            const { Keypair } = require("@stellar/stellar-sdk");
+            const kp = Keypair.random();
+            console.log(`secret=${kp.secret()}`);
+            console.log(`public=${kp.publicKey()}`);
+          ' >> "$GITHUB_OUTPUT"
+
+      # ── Configure and boot bridgelet-sdk ─────────────────────────────────────
+
+      - name: Run database migrations
+        working-directory: bridgelet-sdk
+        env:
+          DATABASE_HOST: localhost
+          DATABASE_PORT: '5432'
+          DATABASE_NAME: bridgelet
+          DATABASE_USER: bridgelet_user
+          DATABASE_PASSWORD: bridgelet_pass
+        run: npm run migration:run
+
+      - name: Build bridgelet-sdk
+        working-directory: bridgelet-sdk
+        run: npm run build
+
+      - name: Start bridgelet-sdk
+        working-directory: bridgelet-sdk
+        env:
+          NODE_ENV: test
+          PORT: '4000'
+          OTEL_ENABLED: 'false'
+          CORS_ORIGINS: http://localhost:3000
+          DATABASE_HOST: localhost
+          DATABASE_PORT: '5432'
+          DATABASE_NAME: bridgelet
+          DATABASE_USER: bridgelet_user
+          DATABASE_PASSWORD: bridgelet_pass
+          DATABASE_SYNC: 'false'
+          STELLAR_NETWORK: testnet
+          STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
+          STELLAR_SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+          # Funded testnet keypair when available; otherwise a freshly
+          # generated (unfunded) keypair so the process still boots — see
+          # the "live-testnet secrets" step above.
+          FUNDING_ACCOUNT_SECRET: ${{ secrets.BRIDGELET_SDK_FUNDING_ACCOUNT_SECRET || steps.throwaway.outputs.secret }}
+          RECOVERY_ACCOUNT_PUBLIC: ${{ secrets.BRIDGELET_SDK_RECOVERY_ACCOUNT_PUBLIC || steps.throwaway.outputs.public }}
+          EPHEMERAL_ACCOUNT_CONTRACT_ID: ${{ secrets.BRIDGELET_SDK_EPHEMERAL_ACCOUNT_CONTRACT_ID || 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4' }}
+          STELLAR_SWEEP_CONTROLLER_CONTRACT_ID: ${{ secrets.BRIDGELET_SDK_SWEEP_CONTROLLER_CONTRACT_ID || 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4' }}
+          SWEEP_SIGNING_KEY_SEED: f76f684a3a8b64f32a7dc7eba0b0a5040ba66b5ea67dad348c3b69b79db3339c
+          JWT_SECRET: ci-compatibility-job-not-a-real-secret
+          # 64 hex chars (32 bytes) — CI-only value, not a real secret.
+          ENCRYPTION_KEY: '9ef61d8fe679ea10433353f5488a91eabbaf831d9f8e422ba8f89636778683ed'
+          CLAIM_TOKEN_EXPIRY: '2592000'
+        run: |
+          # Don't assume `npm run start` (node dist/main.js) is correct:
+          # bridgelet-sdk's tsconfig.build.json doesn't exclude the
+          # top-level scripts/ directory, so tsc's inferred rootDir is the
+          # project root rather than src/, and `nest build` actually emits
+          # dist/src/main.js, not dist/main.js. Their own CI never runs the
+          # built output (only `npm run build`), so this drifted unnoticed.
+          # Locate the real entry point instead of hardcoding the path.
+          ENTRY=$(find dist -name main.js -not -path '*/node_modules/*' | head -1)
+          if [ -z "$ENTRY" ]; then
+            echo "::error::Could not find a built main.js under dist/ after 'npm run build'."
+            find dist -maxdepth 3 || true
+            exit 1
+          fi
+          echo "Starting bridgelet-sdk via: node $ENTRY"
+          nohup node "$ENTRY" > ../bridgelet-sdk.log 2>&1 &
+          echo $! > ../bridgelet-sdk.pid
+
+      - name: Wait for bridgelet-sdk to become healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4000/health > health.json; then
+              echo "bridgelet-sdk is up:"
+              cat health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::bridgelet-sdk did not become healthy within 60s"
+          cat bridgelet-sdk.log || true
+          exit 1
+
+      # ── Primary gate: does the frontend's hand-written API client still
+      #    match what this bridgelet-sdk commit actually serves? ───────────────
+      #
+      # frontend/lib/bridgelet.ts / frontend/lib/create-bridgelet-client.ts
+      # assume specific bridgelet-sdk endpoints and field names. This fetches
+      # the pinned SDK's live OpenAPI spec (GET /api/docs-json) and asserts
+      # those endpoints/fields still exist — catching exactly the "frontend
+      # assumes a response shape/endpoint a different SDK version doesn't
+      # provide" failure mode this issue is about, without needing a funded
+      # testnet account, so it runs on every PR and scheduled run regardless
+      # of secrets. See scripts/check-sdk-contract.mjs for exactly what's
+      # checked (and its known limits — it's field-presence, not full type
+      # equivalence).
+
+      - name: Check frontend/bridgelet-sdk API contract
+        working-directory: bridgelet
+        env:
+          BRIDGELET_API_URL: http://localhost:4000
+        run: node scripts/check-sdk-contract.mjs
+
+      # ── Secondary, best-effort: exercise the flows that are actually wired
+      #    through to the real SDK in the browser e2e suite ────────────────────
+      #
+      # frontend/components/mock-provider.tsx currently auto-enables MSW
+      # whenever NODE_ENV=development regardless of E2E_USE_MOCKS, and at
+      # least one flow (claim-flow.tsx's redeem handler) has a hardcoded
+      # dev-mode stub — so this step does not yet exercise every route
+      # against bridgelet-sdk end-to-end. It's kept because it still catches
+      # regressions in what *is* wired, and to give the "SDK integration"
+      # mode documented in e2e/README.md a real CI run. The OpenAPI check
+      # above is the authoritative pass/fail signal for this job.
+
+      - name: Run e2e suite in SDK-integration mode (best-effort — see comment above)
+        if: steps.secrets.outputs.configured == 'true'
+        continue-on-error: true
+        id: e2e
+        run: npx playwright test --reporter=github
+        working-directory: bridgelet/e2e
+        env:
+          CI: true
+          E2E_USE_MOCKS: 'false'
+          E2E_BASE_URL: http://localhost:3000
+          E2E_API_BASE_URL: http://localhost:4000
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "### Compatibility check — bridgelet-sdk @ \`${{ steps.pin.outputs.commit }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- OpenAPI type contract: authoritative pass/fail signal for this job (see step above)." >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.secrets.outputs.configured }}" = "true" ]; then
+            echo "- Browser e2e suite (SDK-integration mode): ran, best-effort, outcome '${{ steps.e2e.outcome }}' — does not fail the job; see e2e/README.md and this workflow's comments for known coverage gaps." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Browser e2e suite (SDK-integration mode): skipped — \`BRIDGELET_SDK_FUNDING_ACCOUNT_SECRET\` and related secrets are not configured (see docs/compatibility.md#required-ci-secrets)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # ── Artifacts ────────────────────────────────────────────────────────────
+
+      - name: Upload Playwright report
+        if: always() && steps.secrets.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-playwright-report-${{ github.run_id }}
+          path: |
+            bridgelet/frontend/test-results/
+            bridgelet/e2e/playwright-report/
+          retention-days: 14
+
+      - name: Upload bridgelet-sdk log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-sdk-log-${{ github.run_id }}
+          path: bridgelet-sdk.log
+          retention-days: 7
+
+      - name: Stop bridgelet-sdk
+        if: always()
+        run: kill "$(cat bridgelet-sdk.pid)" 2>/dev/null || true
