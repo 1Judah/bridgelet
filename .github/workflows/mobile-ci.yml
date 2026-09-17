@@ -129,7 +129,7 @@ jobs:
   # ── iOS build ────────────────────────────────────────────────────────────────
   build-ios:
     name: iOS Debug Build
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: mobile
@@ -145,6 +145,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+      - name: Select Xcode 16
+        run: |
+          XCODE_DIR=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | head -1)
+          if [ -n "$XCODE_DIR" ]; then sudo xcode-select -s "$XCODE_DIR"; fi
+          xcodebuild -version
       - name: Prebuild native iOS project
         run: npx expo prebuild --platform ios --no-install
 
@@ -168,7 +173,7 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -derivedDataPath ios/build \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -destination 'generic/platform=iOS Simulator' \
             build \
             | xcpretty
 
@@ -238,7 +243,7 @@ jobs:
   # ── Detox E2E — iOS ──────────────────────────────────────────────────────────
   e2e-ios:
     name: Detox E2E (iOS)
-    runs-on: macos-14
+    runs-on: macos-15
     needs: [build-ios]
     defaults:
       run:
@@ -262,9 +267,10 @@ jobs:
           name: ios-debug-app
           path: mobile/ios/build/Build/Products/Debug-iphonesimulator/Bridgelet.app
 
-      - name: Boot iPhone 15 simulator
+      - name: Boot iPhone simulator
         run: |
-          xcrun simctl boot "iPhone 15" || true
+          xcrun simctl list devices available
+          xcrun simctl boot "iPhone 16" || xcrun simctl boot "iPhone 15" || true
 
       - name: Run Detox E2E (iOS)
         run: npx detox test --configuration ios.sim.debug
