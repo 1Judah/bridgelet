@@ -167,11 +167,11 @@ function AvailablePanel({
   if (done) {
     return (
       <div className="space-y-2">
-        <p role="status" className="text-sm font-medium text-green-700">
+        <p role="status" className="text-sm font-medium text-green-700 dark:text-green-400">
           Claim submitted! Check your wallet for the incoming transfer.
         </p>
         {sweepNote && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 dark:text-amber-300 dark:bg-amber-950 dark:border-amber-800">
             🛠 Dev note: {sweepNote}
           </p>
         )}
@@ -194,14 +194,14 @@ function AvailablePanel({
         </div>
         {expiresAt && (
           <div className="flex justify-between">
-            <dt className="font-medium text-slate-700">Expires</dt>
-            <dd className="text-slate-600">{formatExpiry(expiresAt)}</dd>
+            <dt className="font-medium text-slate-700 dark:text-slate-300">Expires</dt>
+            <dd className="text-slate-600 dark:text-slate-400">{formatExpiry(expiresAt)}</dd>
           </div>
         )}
         {memo && (
           <div className="flex justify-between">
-            <dt className="font-medium text-slate-700">Memo</dt>
-            <dd className="text-slate-600">{memo}</dd>
+            <dt className="font-medium text-slate-700 dark:text-slate-300">Memo</dt>
+            <dd className="text-slate-600 dark:text-slate-400">{memo}</dd>
           </div>
         )}
       </dl>
@@ -254,7 +254,7 @@ function AvailablePanel({
         <ChainSelector />
       </div>
 
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-slate-500 dark:text-slate-400">
         Funds are held on-chain. Claiming transfers them directly to your Stellar wallet.
       </p>
     </div>
@@ -303,10 +303,10 @@ function ProcessingPanel({ status, sweepNote }: { status: ClaimStatus; sweepNote
 function ClaimedPanel({ sweepDestination }: { sweepDestination?: string }) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+      <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950">
         <svg
           aria-hidden="true"
-          className="h-6 w-6 shrink-0 text-blue-500"
+          className="h-6 w-6 shrink-0 text-blue-500 dark:text-blue-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -331,7 +331,7 @@ function ClaimedPanel({ sweepDestination }: { sweepDestination?: string }) {
           )}
         </div>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-slate-500 dark:text-slate-400">
         If you believe this is a mistake, contact the sender for a new payment link.
       </p>
     </div>
@@ -344,10 +344,10 @@ function ExpiredPanel({
 }: Pick<ClaimStatusCardProps, 'expiresAt' | 'supportEmail'>) {
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+      <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950">
         <svg
           aria-hidden="true"
-          className="mt-0.5 h-5 w-5 shrink-0 text-red-500"
+          className="mt-0.5 h-5 w-5 shrink-0 text-red-500 dark:text-red-400"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -360,16 +360,18 @@ function ExpiredPanel({
           />
         </svg>
         <div>
-          <p className="text-sm font-semibold text-red-800">This claim link has expired</p>
+          <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+            This claim link has expired
+          </p>
           {expiresAt && (
             <p className="text-xs text-red-600 mt-0.5">Expired on {formatExpiry(expiresAt)}.</p>
           )}
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        <p className="font-medium text-slate-800 mb-1">What to do next</p>
-        <ul className="list-disc list-inside space-y-1 text-xs text-slate-600">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        <p className="font-medium text-slate-800 mb-1 dark:text-slate-200">What to do next</p>
+        <ul className="list-disc list-inside space-y-1 text-xs text-slate-600 dark:text-slate-400">
           <li>Contact the sender and ask them to send a new payment link.</li>
           <li>Expired funds are automatically returned to the sender&apos;s wallet.</li>
           {supportEmail && (
@@ -377,7 +379,7 @@ function ExpiredPanel({
               Need help?{' '}
               <a
                 href={`mailto:${supportEmail}`}
-                className="underline underline-offset-2 hover:text-slate-900"
+                className="underline underline-offset-2 hover:text-slate-900 dark:hover:text-slate-100"
               >
                 {supportEmail}
               </a>
@@ -462,7 +464,7 @@ export function ClaimStatusCard({
         <StatusBadge status={status} />
       </header>
 
-      <hr className="border-slate-100" />
+      <hr className="border-slate-100 dark:border-slate-800" />
 
       {(status === AccountStatus.INITIALIZING || status === AccountStatus.PENDING_PAYMENT) && (
         <NotReadyPanel status={status} />

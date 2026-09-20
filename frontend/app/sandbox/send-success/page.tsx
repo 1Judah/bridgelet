@@ -1,7 +1,7 @@
-'use client'
+'use client';
 
-import { PageShell } from '@/components/page-shell'
-import type { SendFormState } from '@/components/send-form'
+import { PageShell } from '@/components/page-shell';
+import type { SendFormState } from '@/components/send-form';
 
 function SuccessView({ state }: { state: SendFormState }) {
   return (
@@ -12,11 +12,11 @@ function SuccessView({ state }: { state: SendFormState }) {
     >
       <p className="font-medium text-green-800">Payment sent!</p>
       <p className="mt-1 text-sm text-green-700">
-        A claim link has been sent to <strong>{state.recipientEmail}</strong>. They have 24
-        hours to claim their funds.
+        A claim link has been sent to <strong>{state.recipientEmail}</strong>. They have 24 hours to
+        claim their funds.
       </p>
     </div>
-  )
+  );
 }
 
 const TEST_FORM_STATE: SendFormState = {
@@ -25,8 +25,9 @@ const TEST_FORM_STATE: SendFormState = {
   recipientEmail: 'test@example.com',
   amountXlm: '5',
   assetCode: 'XLM',
-  memo: 'Invoice #42'
-}
+  memo: 'Invoice #42',
+  expiresIn: 7 * 24 * 60 * 60,
+};
 
 export default function SendSuccessSandboxPage() {
   return (
@@ -53,7 +54,7 @@ export default function SendSuccessSandboxPage() {
                     {isDone && <span className="sr-only"> (complete)</span>}
                   </span>
                 </li>
-              )
+              );
             })}
           </ol>
         </nav>
@@ -63,5 +64,5 @@ export default function SendSuccessSandboxPage() {
         <SuccessView state={TEST_FORM_STATE} />
       </div>
     </PageShell>
-  )
+  );
 }

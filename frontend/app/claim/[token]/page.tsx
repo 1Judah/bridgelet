@@ -3,6 +3,7 @@ import { PageShell } from '@/components/page-shell';
 import { SharePrompt } from '@/components/share-prompt';
 import { ClaimPageClient } from './claim-page-client';
 import { publicEnv } from '@/lib/env';
+import { loadClaimView } from '@/lib/claim-view';
 
 type ClaimPageProps = {
   params: Promise<{ token: string }>;

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { AccountStatus } from '@/lib/api/types';
 import { ClaimStatusCard } from './claim-status-card';
+import { AccountStatus } from '@/lib/api/types';
 
 const meta: Meta<typeof ClaimStatusCard> = {
   title: 'Components/ClaimStatusCard',
@@ -10,6 +11,14 @@ const meta: Meta<typeof ClaimStatusCard> = {
 export default meta;
 
 type Story = StoryObj<typeof ClaimStatusCard>;
+
+export const Initializing: Story = {
+  args: { status: AccountStatus.INITIALIZING },
+};
+
+export const PendingPayment: Story = {
+  args: { status: AccountStatus.PENDING_PAYMENT },
+};
 
 export const Unclaimed: Story = {
   args: {

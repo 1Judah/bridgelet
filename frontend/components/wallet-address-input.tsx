@@ -26,9 +26,7 @@ export function WalletAddressInput({
   const [touched, setTouched] = useState(false);
 
   const validationError =
-    touched &&
-    value.length > 0 &&
-    !STELLAR_ADDRESS.test(value)
+    touched && value.length > 0 && !STELLAR_ADDRESS.test(value)
       ? 'Enter a valid Stellar public key (starts with G, 56 characters).'
       : null;
 
@@ -47,10 +45,7 @@ export function WalletAddressInput({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label
-        htmlFor={inputId}
-        className="text-sm font-medium text-slate-900"
-      >
+      <label htmlFor={inputId} className="text-sm font-medium text-slate-900">
         {label}
       </label>
 
@@ -73,11 +68,7 @@ export function WalletAddressInput({
       />
 
       {displayError && (
-        <p
-          id={`${inputId}-error`}
-          role="alert"
-          className="text-xs text-red-600"
-        >
+        <p id={`${inputId}-error`} role="alert" className="text-xs text-red-600">
           {displayError}
         </p>
       )}
@@ -100,7 +91,8 @@ export function WalletAddressInput({
           className="underline hover:text-slate-800"
         >
           Freighter
-        </a>.
+        </a>
+        .
       </p>
     </div>
   );
