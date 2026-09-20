@@ -49,7 +49,7 @@ The table below maps each part of the codebase to the testing tools and the curr
 | Mobile unit tests | Jest + jest-expo | Component and utility logic | ⚠️ Runner configured, no test files yet |
 | SDK unit tests | Jest | Core account / payment logic | 🔲 Planned |
 | SDK integration tests | Jest + Stellar testnet | Blockchain interactions | 🔲 Planned |
-| E2E system tests | Playwright | End-to-end cross-layer flows | 🔲 Planned |
+| E2E system tests | Playwright | End-to-end cross-layer flows | ✅ Harness in place (`e2e/`) |
 
 Legend: ✅ In place · ⚠️ Partially set up · 🔲 Planned
 
@@ -625,40 +625,95 @@ npm test -- --coverage
 
 ## End-to-End (E2E) Tests
 
-### E2E Test Environment
+The integration test harness lives in [`e2e/`](./e2e/) at the repository root and
+covers the full **send → claim → sweep** user journey spanning the frontend (this
+repo), `bridgelet-sdk`, and (optionally) a `bridgelet-core` testnet contract
+deployment.
 
-E2E tests require a complete environment:
+### Test coverage
+
+| Test file | Scenarios covered |
+|---|---|
+| `e2e/tests/happy-path.spec.ts` | Send flow completion; pending claim view; full send → claim → sweep |
+| `e2e/tests/failure-paths.spec.ts` | Expired token (401); already-claimed (409); invalid token (400); network error; redemption failure (500) |
+
+### Architecture
 
 ```
 ┌──────────────────────────────────┐
-│  Test Client / Web Driver        │ (Puppeteer/Playwright)
+│  Playwright (headless Chromium)  │
 └──────────────┬───────────────────┘
-               │
+               │ HTTP via page.route() or MSW
 ┌──────────────▼───────────────────┐
-│      Backend SDK (Test Mode)     │ (NestJS on :3001)
+│  Next.js dev server (:3000)      │
+│  ↳ MSW intercepts API calls      │ (default / mocked mode)
 └──────────────┬───────────────────┘
-               │
+               │ (optional, E2E_USE_MOCKS=false)
 ┌──────────────▼───────────────────┐
-│    Stellar Testnet Blockchain    │
+│  bridgelet-sdk (:3001)           │
+└──────────────┬───────────────────┘
+               │ (optional, full cross-layer)
+┌──────────────▼───────────────────┐
+│  Stellar Testnet Blockchain      │
 └──────────────────────────────────┘
 ```
 
-### Running E2E Tests
+### Quick start — mocked mode (no real backend required)
 
 ```bash
-cd frontend
-
-# One-time: install Chromium for Playwright
+# 1. Install e2e dependencies and Playwright browser
+cd e2e
+npm install
 npx playwright install --with-deps chromium
 
-# Run the smoke suite (starts Next.js automatically)
-npm run test:e2e
+# 2. Run all tests (starts the Next.js dev server automatically)
+npm test
 
-# Run a specific file
-npm run test:e2e -- e2e/home.spec.ts
+# 3. Interactive UI mode (shows browser timeline, traces, etc.)
+npm run test:ui
+
+# 4. Debug a specific test
+npm run test:debug -- tests/failure-paths.spec.ts
+
+# 5. View the HTML report from the last run
+npm run test:report
 ```
 
-For full-stack journeys that need the SDK backend and Stellar testnet, start those services separately and keep browser specs deterministic (mocks/sandbox routes). See [Playwright E2E Tests](#playwright-e2e-tests) and [docs/testing/E2E_GUIDELINES.md](docs/testing/E2E_GUIDELINES.md).
+The test runner starts `cd ../frontend && npm run dev` before executing tests.
+If you already have the dev server running on `localhost:3000`, it will be reused.
+
+For full-stack journeys that need the SDK backend and Stellar testnet, start those services separately and keep browser specs deterministic (mocks/sandbox routes). See [Playwright E2E Tests](#playwright-e2e-tests).
+
+### Running against a real bridgelet-sdk instance
+
+```bash
+# Start bridgelet-sdk locally (see bridgelet-sdk README for full setup)
+cd /path/to/bridgelet-sdk && npm run start:dev   # listens on :3001
+
+# Run e2e tests against the real backend
+cd e2e
+E2E_USE_MOCKS=false E2E_API_BASE_URL=http://localhost:3001 npm test
+```
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `E2E_USE_MOCKS` | `true` | Set to `false` to use a real `bridgelet-sdk` instance |
+| `E2E_BASE_URL` | `http://localhost:3000` | Frontend URL targeted by Playwright |
+| `E2E_API_BASE_URL` | _(none)_ | bridgelet-sdk base URL (only used when `E2E_USE_MOCKS=false`) |
+
+### CI
+
+E2E tests run in a **dedicated, scheduled GitHub Actions workflow** (`.github/workflows/e2e.yml`) rather than on every PR — cross-repo setup cost makes gating every commit impractical. The workflow:
+
+- Runs daily at 06:00 UTC.
+- Can be triggered manually from the Actions tab (supports `use_mocks` input).
+- Also triggers automatically on PRs that modify files under `e2e/`, `frontend/app/`, `frontend/components/`, `frontend/lib/`, or `frontend/mocks/`.
+
+See the full workflow at [`.github/workflows/e2e.yml`](./.github/workflows/e2e.yml).
+
+For full setup instructions including testnet account funding and contract deployment, see [`e2e/README.md`](./e2e/README.md).
 
 ## Testing Against Live Testnet
 

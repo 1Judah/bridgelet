@@ -155,39 +155,25 @@ export function ConfirmStep({ state, onBack }: ConfirmStepProps) {
         aria-live="polite"
         className="rounded-lg border border-green-200 bg-green-50 px-4 py-4 space-y-3 dark:border-green-800 dark:bg-green-950"
       >
-        <div>
-          <p className="font-medium text-green-800 dark:text-green-300">Payment sent!</p>
-          <p className="mt-1 text-sm text-green-700 dark:text-green-400">
-            {state.recipientEmail ? (
-              <>
-                A claim link has been sent to <strong>{state.recipientEmail}</strong>.
-              </>
-            ) : (
-              <>Your claim link is ready to share with your recipient.</>
-            )}{' '}
-            They have {formatExpiryLabel(state.expiresIn || DEFAULT_EXPIRES_IN_SECONDS)} to claim
-            their funds.
-          </p>
-        </div>
-        {signingModeUsed === 'freighter-client' && (
-          <p className="mt-2 text-xs text-green-700 dark:text-green-400">
-            Account creation was authorised with Freighter client-side signing.
-          </p>
-        )}
+        <p className="font-medium text-green-800">Payment sent!</p>
+        <p className="mt-1 text-sm text-green-700">
+          A claim link has been sent to <strong>{state.recipientEmail}</strong>. They have 24
+          hours to claim their funds.
+        </p>
 
         {claimUrl && (
-          <div className="flex flex-wrap gap-2 pt-2">
+          <p className="mt-2 text-sm text-green-700">
+            Send the recipient this link:{' '}
             <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700"
+              href={claimUrl}
+              data-testid="claim-link"
+              className="font-medium underline underline-offset-2 hover:text-green-900"
             >
-              <span>Share via WhatsApp</span>
+              {claimUrl}
             </a>
-          </div>
+          </p>
         )}
-
+        
         {isSupported && claimUrl && (
           <div className="border-t border-green-200 pt-4 dark:border-green-800">
             <button

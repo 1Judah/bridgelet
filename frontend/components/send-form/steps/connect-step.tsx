@@ -39,9 +39,9 @@ export function ConnectStep({ publicKey, onConnected }: ConnectStepProps) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Connect your Freighter wallet to authorise payments. No password required — signing with
-        your key proves you control the address.
+      <p className="text-sm text-slate-600">
+        Connect your wallet to authorise payments. No password required — signing with your key
+        proves you control the address.
       </p>
 
       <div className="py-2">

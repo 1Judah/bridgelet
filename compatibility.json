@@ -1,0 +1,24 @@
+{
+  "$comment": "Machine-readable source of truth for cross-repo version compatibility. Read by .github/workflows/compatibility.yml (to pin the bridgelet-sdk checkout) and by scripts/check-compatibility-doc.mjs (to gate `release-it` on docs/compatibility.md being up to date). See docs/compatibility.md for the human-readable matrix and update process.",
+  "frontend": {
+    "repo": "bridgelet-org/bridgelet",
+    "version": "1.0.0"
+  },
+  "verified": {
+    "bridgeletSdk": {
+      "repo": "bridgelet-org/bridgelet-sdk",
+      "version": "0.0.1",
+      "ref": "main",
+      "commit": "42e3cdef4b2edca4134e4a7f9f977749c53a54db"
+    },
+    "bridgeletCore": {
+      "repo": "bridgelet-org/bridgelet-core",
+      "version": "unreleased",
+      "ref": "main",
+      "commit": "47bb6751b0e989bbcdf3cb6efda92679b7b6d983"
+    }
+  },
+  "status": "pinned",
+  "pinnedOn": "2026-08-22",
+  "statusNote": "'pinned' means this is the combination CI is configured to check, not yet a passing result. Flip to 'verified' (and add the run URL to docs/compatibility.md's matrix row) once .github/workflows/compatibility.yml's contract-check job has passed against this exact commit pair — that check does not require BRIDGELET_SDK_* secrets; those only unlock the workflow's secondary, best-effort browser e2e run."
+}

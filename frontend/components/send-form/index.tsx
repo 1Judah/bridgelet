@@ -10,7 +10,7 @@ export type SendFormStep = 'connect' | 'expiry' | 'details' | 'confirm';
 
 export interface SendFormState {
   publicKey: string;
-  recipientName: string;
+  expiresInHours: number;
   recipientEmail: string;
   amountXlm: string;
   assetCode: string;
@@ -20,7 +20,7 @@ export interface SendFormState {
 
 const INITIAL_STATE: SendFormState = {
   publicKey: '',
-  recipientName: '',
+  expiresInHours: 24,
   recipientEmail: '',
   amountXlm: '',
   assetCode: 'XLM',
@@ -31,10 +31,10 @@ const INITIAL_STATE: SendFormState = {
 const STEP_ORDER: SendFormStep[] = ['connect', 'expiry', 'details', 'confirm'];
 
 const STEP_LABELS: Record<SendFormStep, string> = {
-  connect: 'Step 1 of 4: Connect wallet',
-  expiry: 'Step 2 of 4: Set expiry',
-  details: 'Step 3 of 4: Set account details',
-  confirm: 'Step 4 of 4: Create account',
+  connect: 'Step 1 of 4: Connect Wallet',
+  expiry: 'Step 2 of 4: Set Expiry',
+  details: 'Step 3 of 4: Set Account Details',
+  confirm: 'Step 4 of 4: Create Account',
 };
 
 /**
@@ -126,8 +126,16 @@ export function SendForm() {
       )}
       {step === 'expiry' && (
         <ExpiryStep
-          expiresIn={formState.expiresIn}
-          onChange={(expiresIn) => updateState({ expiresIn })}
+          expiresInHours={formState.expiresInHours}
+          onChange={(hours) => updateState({ expiresInHours: hours })}
+          onBack={goBack}
+          onNext={goNext}
+        />
+      )}
+      {step === 'details' && (
+        <DetailsStep
+          state={formState}
+          onChange={updateState}
           onBack={goBack}
           onNext={goNext}
         />

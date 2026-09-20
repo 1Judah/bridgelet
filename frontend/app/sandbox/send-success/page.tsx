@@ -21,7 +21,7 @@ function SuccessView({ state }: { state: SendFormState }) {
 
 const TEST_FORM_STATE: SendFormState = {
   publicKey: 'GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
-  recipientName: 'Test Recipient',
+  expiresInHours: 24,
   recipientEmail: 'test@example.com',
   amountXlm: '5',
   assetCode: 'XLM',
@@ -38,8 +38,8 @@ export default function SendSuccessSandboxPage() {
       <div className="space-y-6">
         <nav aria-label="Send form progress">
           <ol className="flex gap-2" role="list">
-            {['connect', 'details', 'confirm'].map((s, i) => {
-              const isDone = i < 2;
+            {['connect', 'expiry', 'details', 'confirm'].map((s, i) => {
+              const isDone = i < 3
               return (
                 <li key={s} className="flex items-center gap-2">
                   {i > 0 && (
@@ -58,7 +58,9 @@ export default function SendSuccessSandboxPage() {
             })}
           </ol>
         </nav>
-        <h2 className="text-xl font-semibold text-slate-900">Step 3 of 3: Confirm & Send</h2>
+        <h2 className="text-xl font-semibold text-slate-900">
+          Step 4 of 4: Create Account
+        </h2>
         <SuccessView state={TEST_FORM_STATE} />
       </div>
     </PageShell>

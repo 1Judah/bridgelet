@@ -27,6 +27,22 @@ Thanks for helping improve Bridgelet! Please read this guide before opening an i
 - See the repository README and `/docs` for architecture and setup details.
 - Align with existing patterns and follow project style where present.
 
+## Releases
+
+Releases are cut with [release-it](https://github.com/release-it/release-it):
+
+```bash
+npm run release           # patch release (default)
+npm run release -- minor  # minor release
+npm run release -- major  # major release
+npm run release:dry-run   # preview what the release would do
+npm run changelog         # print the changelog for the next release (preview)
+```
+
+`CHANGELOG.md` entries are generated automatically from conventional commits
+and written by release-it as part of `npm run release`; see the "Release
+process" note at the top of `CHANGELOG.md` for the manual override policy.
+
 ## Questions?
 
 If you are unsure how to proceed, open a GitHub Discussion or email the maintainers per [SUPPORT.md](./SUPPORT.md). We are happy to help you get started.

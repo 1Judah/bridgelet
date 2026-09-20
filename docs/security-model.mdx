@@ -124,6 +124,14 @@ The **URL fragment approach offers stronger passive-leak protection** (the token
 
 **Decision:** Keep path-segment placement with mitigations (1)–(4) above. Revisit fragment placement only if a reliable fragment-preservation guarantee can be provided end-to-end for the supported share channels.
 
+### Client-Side QR Code Rendering Guarantee
+
+To prevent credential leakage to third-party infrastructure, QR code generation for claim links MUST take place entirely client-side within the browser:
+
+- **Local SVG/Canvas Rendering**: QR code elements (e.g. `QRCode` in `frontend/components/qr-code.tsx`) generate SVG matrix grids strictly from browser DOM data in client memory.
+- **Zero External API Calls**: Transmitting claim URLs or tokens to third-party QR generation web services (such as `api.qrserver.com`, `chart.googleapis.com`, or external microservices) is strictly prohibited.
+- **Automated Verification**: Automated unit tests (e.g., `frontend/components/qr-code.test.tsx`) enforce that rendering a claim link as a QR code triggers zero outbound HTTP requests.
+
 ---
 
 Claim tokens are **JWTs signed by the backend** using a secret the frontend never sees.

@@ -58,6 +58,57 @@ jobs:
         if: steps.pkg.outputs.has_test == 'true'
         run: npm test
 
+      - name: Run accessibility (axe-core) tests
+        if: steps.pkg.outputs.has_test == 'true'
+        run: npm run test:a11y:ci
+
+      - name: Run unit tests with coverage
+        if: steps.pkg.outputs.has_test == 'true'
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        if: steps.pkg.outputs.has_test == 'true'
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+          fail_ci_if_error: false
+
+      - name: Comment coverage on PR
+        if: steps.pkg.outputs.has_test == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const lcovPath = 'frontend/coverage/lcov.info';
+            if (!fs.existsSync(lcovPath)) { core.info('No lcov found'); return; }
+            const lcov = fs.readFileSync(lcovPath, 'utf-8');
+            const lf = (lcov.match(/^LF:(\d+)$/gm) || []).map(m => +m.split(':')[1]);
+            const lh = (lcov.match(/^LH:(\d+)$/gm) || []).map(m => +m.split(':')[1]);
+            const totalLf = lf.reduce((a, b) => a + b, 0);
+            const totalLh = lh.reduce((a, b) => a + b, 0);
+            const pct = totalLf ? (totalLh / totalLf * 100).toFixed(2) : 0;
+            const body = `## Coverage Report\n\n**Total line coverage: ${pct}%**\n\nCoverage is informational only; no hard gate applied yet.`;
+            fs.writeFileSync('coverage-comment.md', body);
+
+      - name: Post coverage summary as PR comment
+        if: steps.pkg.outputs.has_test == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.existsSync('coverage-comment.md')
+              ? fs.readFileSync('coverage-comment.md', 'utf-8')
+              : '## Coverage Report\n\nNo coverage data generated.';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
       - name: Build app
         run: npm run build
 

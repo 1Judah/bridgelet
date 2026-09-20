@@ -40,7 +40,7 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: '4',
     title: 'Reminder: Meeting at 3pm',
-    body: 'Don't forget your scheduled call.',
+    body: "Don't forget your scheduled call.",
     read: true,
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5),
   },

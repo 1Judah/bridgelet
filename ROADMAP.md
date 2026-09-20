@@ -39,9 +39,10 @@ We are currently focused on delivering the Minimum Viable Product (MVP) which al
 - **SDK Enhancements**
   - [ ] Webhook support for account events (claimed, expired)
   - [ ] Multi-signature support for organization controls
-- **Frontend**
+- **Frontend & Mobile**
   - [ ] Release `bridgelet-ui` reference implementation (Next.js)
-  - [ ] Widget/iFrame support for easy integration
+  - [x] **Mobile Client (`bridgelet-mobile`)**: React Native / Expo native app architecture, SDK API client, test suite, and CI coverage
+  - [ ] Mobile NFC & QR claim code scanning integrations
 - **Network**
   - [ ] **Mainnet Beta Launch** (Limited pilot)
 

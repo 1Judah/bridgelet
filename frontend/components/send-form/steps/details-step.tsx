@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { SendFormState } from '../index';
 import { ChainSelector } from '../../chain-selector';
 import { getXlmUsdRate, formatFiat } from '@/lib/xlm-price';
@@ -44,31 +44,20 @@ type DetailsStepProps = {
 };
 
 export function DetailsStep({ state, onChange, onBack, onNext }: DetailsStepProps) {
-  const [selectedChain, setSelectedChain] = useState('stellar');
-  const [errors, setErrors] = useState<FieldErrors>({});
-  const [touched, setTouched] = useState(false);
-  const [usdRate, setUsdRate] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getXlmUsdRate().then((rate) => {
-      if (!cancelled && rate > 0) setUsdRate(rate);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (touched) setErrors(validateDetails(state));
-  }, [state.recipientEmail, state.amountXlm, state.assetCode, touched]);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const nextErrors = validateDetails(state);
-    setErrors(nextErrors);
-    setTouched(true);
-    if (Object.keys(nextErrors).length === 0) onNext();
+    const email = state.recipientEmail.trim();
+    const amount = state.amountXlm.trim();
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const amountValid = amount !== '' && Number.isFinite(Number(amount)) && Number(amount) > 0;
+    if (!emailValid || !amountValid) {
+      setValidationError('All fields are required. Enter a valid email address and amount.');
+      return;
+    }
+    setValidationError(null);
+    onNext();
   }
 
   const amount = Number(state.amountXlm);
@@ -195,6 +184,12 @@ export function DetailsStep({ state, onChange, onBack, onNext }: DetailsStepProp
           className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-slate-400 dark:focus:ring-slate-400"
         />
       </div>
+
+      {validationError && (
+        <p role="alert" className="text-sm text-red-600">
+          {validationError}
+        </p>
+      )}
 
       <div className="flex gap-3 pt-2">
         <button

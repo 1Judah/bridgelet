@@ -1,37 +1,92 @@
 import { AccountStatus } from '@/lib/api/types';
-import { BridgeletApiError, BridgeletClient } from '@/lib/api/client';
+import { BridgeletApiError, getDefaultClient } from '@/lib/api/client';
 
+/**
+ * The claim view model rendered by `ClaimStatusCard`. Built from the
+ * verified claim details plus locally-tracked redemption state.
+ */
 export interface ClaimView {
   status: AccountStatus;
+  /** Claim amount in stroops. */
   amountStroops?: string;
+  /** ISO 4217 asset code. */
   assetCode?: string;
+  /** ISO 8601 expiry timestamp. */
   expiresAt?: string;
+  /** Optional sender memo. */
+  memo?: string;
+  /** Developer-facing note from the redeem/verify response. */
   sweepNote?: string;
+  /** Whether this session performed the claim. */
+  claimedByMe?: boolean;
+  /** Destination address used for this session's sweep. */
+  sweepDestination?: string;
+  /** Amount swept during this session, in stroops. */
+  sweepAmountStroops?: string;
 }
 
-export function toStroops(decimalAmount: string): string {
-  if (!decimalAmount) return '0';
-  const num = parseFloat(decimalAmount);
-  if (Number.isNaN(num)) return '0';
-  return String(Math.round(num * 10_000_000));
+/**
+ * Convert a decimal lumens amount (e.g. "100.0000000") to stroops without
+ * floating point math. 1 XLM = 10_000_000 stroops.
+ */
+export function decimalToStroops(decimal: string): string {
+  const [intPart = '0', fracPart = ''] = decimal.split('.');
+  const negative = intPart.startsWith('-') ? '-' : '';
+  const int = negative ? intPart.slice(1) : intPart;
+  const frac = fracPart.padEnd(7, '0').slice(0, 7);
+  const digits = `${int}${frac}`.replace(/^0+(?=\d)/, '');
+  return `${negative}${digits || '0'}`;
 }
 
-export async function loadClaimView(claimToken: string): Promise<ClaimView> {
-  const client = new BridgeletClient();
+/**
+ * Derive an ISO 4217-style asset code from the backend's asset identifier:
+ * "native" → "XLM", "USDC:GBUQ..." → "USDC", "XLM" → "XLM".
+ */
+export function assetCodeFromAsset(asset: string): string {
+  const code = asset.split(':')[0] ?? asset;
+  return code === 'native' ? 'XLM' : code;
+}
+
+/**
+ * Load the current view state for a claim token.
+ *
+ * Maps backend status codes onto the account lifecycle so the UI can render
+ * the right panel:
+ * - 200 → PENDING_CLAIM (verified, claimable)
+ * - 401 → EXPIRED (token past its expiry timestamp)
+ * - 409 → CLAIMED (already redeemed)
+ * - 400 → PENDING_PAYMENT (malformed or not yet claimable)
+ * - anything else → FAILED
+ */
+export async function loadClaimView(token: string): Promise<ClaimView> {
   try {
-    const result = await client.verifyClaim(claimToken);
+    const resp = await getDefaultClient().verifyClaim(token);
     return {
       status: AccountStatus.PENDING_CLAIM,
-      amountStroops: toStroops(result.amountStroops ?? '0'),
-      assetCode: result.assetCode === 'native' ? 'XLM' : result.assetCode,
-      expiresAt: result.expiresAt,
+      amountStroops: resp.amount != null ? decimalToStroops(resp.amount) : undefined,
+      assetCode: resp.asset != null ? assetCodeFromAsset(resp.asset) : undefined,
+      expiresAt: resp.expiresAt,
     };
   } catch (err) {
     if (err instanceof BridgeletApiError) {
-      if (err.statusCode === 409) return { status: AccountStatus.CLAIMED };
-      if (err.statusCode === 400) return { status: AccountStatus.PENDING_PAYMENT };
-      if (err.statusCode === 401) return { status: AccountStatus.EXPIRED };
+      switch (err.statusCode) {
+        case 401:
+          return { status: AccountStatus.EXPIRED };
+        case 409:
+          return { status: AccountStatus.CLAIMED };
+        case 400:
+          return { status: AccountStatus.PENDING_PAYMENT };
+        default:
+          return { status: AccountStatus.FAILED };
+      }
     }
-    return { status: AccountStatus.FAILED };
+    throw err;
   }
 }
+
+/**
+ * Record that this session redeemed the given token. Kept as an explicit
+ * side-effect hook so a future, persisted implementation can be dropped in
+ * without touching call sites.
+ */
+export function markTokenClaimed(_token: string): void {}
