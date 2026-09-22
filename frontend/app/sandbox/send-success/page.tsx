@@ -22,6 +22,7 @@ function SuccessView({ state }: { state: SendFormState }) {
 const TEST_FORM_STATE: SendFormState = {
   publicKey: 'GABC1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
   expiresInHours: 24,
+  recipientName: 'Amina',
   recipientEmail: 'test@example.com',
   amountXlm: '5',
   assetCode: 'XLM',
