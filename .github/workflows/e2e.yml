@@ -38,19 +38,6 @@ jobs:
     # clearly attributed to its own job rather than one aggregate pass/fail.
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # `project` maps 1:1 to a project name in e2e/playwright.config.ts
-          # and is passed to `--project=<name>`.
-          # `browser` is the underlying engine Playwright needs installed for
-          # that project.
-          - project: chromium
-            browser: chromium
-          - project: firefox
-            browser: firefox
-          - project: webkit
-            browser: webkit
-
     defaults:
       run:
         working-directory: e2e
