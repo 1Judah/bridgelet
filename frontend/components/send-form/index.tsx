@@ -11,6 +11,7 @@ export type SendFormStep = 'connect' | 'expiry' | 'details' | 'confirm';
 export interface SendFormState {
   publicKey: string;
   expiresInHours: number;
+  recipientName: string;
   recipientEmail: string;
   amountXlm: string;
   assetCode: string;
@@ -21,6 +22,7 @@ export interface SendFormState {
 const INITIAL_STATE: SendFormState = {
   publicKey: '',
   expiresInHours: 24,
+  recipientName: '',
   recipientEmail: '',
   amountXlm: '',
   assetCode: 'XLM',
@@ -139,9 +141,6 @@ export function SendForm() {
           onBack={goBack}
           onNext={goNext}
         />
-      )}
-      {step === 'details' && (
-        <DetailsStep state={formState} onChange={updateState} onBack={goBack} onNext={goNext} />
       )}
       {step === 'confirm' && <ConfirmStep state={formState} onBack={goBack} />}
     </div>

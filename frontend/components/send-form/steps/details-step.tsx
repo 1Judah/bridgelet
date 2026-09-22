@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SendFormState } from '../index';
 import { ChainSelector } from '../../chain-selector';
 import { getXlmUsdRate, formatFiat } from '@/lib/xlm-price';
@@ -45,6 +45,17 @@ type DetailsStepProps = {
 
 export function DetailsStep({ state, onChange, onBack, onNext }: DetailsStepProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [selectedChain, setSelectedChain] = useState<string>('stellar');
+  const [usdRate, setUsdRate] = useState<number | null>(null);
+  const errors = validateDetails(state);
+
+  useEffect(() => {
+    let active = true;
+    getXlmUsdRate().then((rate) => {
+      if (active) setUsdRate(rate);
+    });
+    return () => { active = false; };
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -161,7 +172,7 @@ export function DetailsStep({ state, onChange, onBack, onNext }: DetailsStepProp
         )}
         {/* Live XLM → USD conversion; hidden when the rate is unavailable */}
         <p aria-live="polite" className="mt-1 min-h-5 text-sm text-slate-500 dark:text-slate-400">
-          {showConversion && (
+          {showConversion && typeof usdRate === 'number' && (
             <>
               ≈ {formatFiat(amount, usdRate)} USD
               <span className="sr-only"> at the current XLM/USD rate</span>

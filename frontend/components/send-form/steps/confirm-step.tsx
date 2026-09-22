@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { SendFormState } from '../index';
 import { useNfc } from '@/hooks/use-nfc';
-import { BridgeletClient, RateLimitError } from '@/lib/api/client';
+import { BridgeletClient, RateLimitError } from '@/lib/create-bridgelet-client';
 import { createEphemeralAccount, type EphemeralAccount } from '@/lib/bridgelet';
 import {
   FreighterSenderSigningError,
