@@ -42,19 +42,13 @@ jobs:
         include:
           # `project` maps 1:1 to a project name in e2e/playwright.config.ts
           # and is passed to `--project=<name>`.
-          # `browser` is the underlying engine Playwright needs installed —
-          # the two mobile projects emulate a device on top of an existing
-          # desktop engine, so they reuse that engine's binary rather than
-          # needing a separate download.
+          # `browser` is the underlying engine Playwright needs installed for
+          # that project.
           - project: chromium
             browser: chromium
           - project: firefox
             browser: firefox
           - project: webkit
-            browser: webkit
-          - project: mobile-chrome
-            browser: chromium
-          - project: mobile-safari
             browser: webkit
 
     defaults:
