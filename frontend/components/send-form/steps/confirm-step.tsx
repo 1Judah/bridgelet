@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { SendFormState } from '../index';
 import { useNfc } from '@/hooks/use-nfc';
 import { BridgeletClient, RateLimitError } from '@/lib/create-bridgelet-client';
@@ -70,6 +70,9 @@ export function ConfirmStep({ state, onBack }: ConfirmStepProps) {
   const [claimUrl, setClaimUrl] = useState<string | null>(null);
   const [createdAccountId, setCreatedAccountId] = useState<string | null>(null);
   const { isSupported, writeUrl, isWriting, error: nfcError } = useNfc();
+  // Timestamp of the sender's "Confirm & Send" intent, used to measure
+  // Payment Confirmed → Payment Created latency.
+  const confirmedAt = useRef<number | null>(null);
 
   const submitting = submitPhase !== 'idle' && submitPhase !== 'success';
 
@@ -119,6 +122,12 @@ export function ConfirmStep({ state, onBack }: ConfirmStepProps) {
       setClaimUrl(account.claimUrl);
       setCreatedAccountId(account.accountId);
       setSubmitPhase('success');
+      analytics.paymentCreated({
+        claimId: account.accountId,
+        assetType: state.assetCode,
+        expiryDays: state.expiresInHours / 24,
+        confirmationTimeMs: confirmedAt.current != null ? Date.now() - confirmedAt.current : 0,
+      });
       analytics.paymentDetailsViewed({ claimId: account.accountId, claimStatus: 'unclaimed' });
     } catch (err) {
       const info = classifyError(err);
@@ -134,6 +143,12 @@ export function ConfirmStep({ state, onBack }: ConfirmStepProps) {
   }
 
   function handleConfirm() {
+    confirmedAt.current = Date.now();
+    analytics.paymentConfirmed({
+      assetType: state.assetCode,
+      expiryDays: state.expiresInHours / 24,
+      walletType: 'Freighter',
+    });
     executeCreateAccount(1);
   }
 
