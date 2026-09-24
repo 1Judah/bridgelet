@@ -17,15 +17,49 @@ type ClaimEvent =
   | 'Claim Verified'
   | 'Claim CTA Clicked';
 
-type EventProps = Record<string, string | number | boolean>;
+type EventProps = Record<string, string | number | boolean | null>;
+
+export type DeviceType = 'mobile' | 'tablet' | 'desktop';
+
+/**
+ * App version correlated to a deploy (`docs/analytics-spec.md` §3.1
+ * `app_version`). Inlined at build time from NEXT_PUBLIC_APP_VERSION so
+ * dashboards can attribute event volume to a release. Falls back to
+ * "unknown" rather than emitting an empty string.
+ */
+export function appVersion(): string {
+  const version = process.env.NEXT_PUBLIC_APP_VERSION;
+  return version && version.trim().length > 0 ? version : 'unknown';
+}
+
+/**
+ * Classifies `mobile | tablet | desktop` from a user agent
+ * (`docs/analytics-spec.md` §3.1 `device_type`). Accepts an explicit UA
+ * string for testability; defaults to the runtime navigator user agent.
+ * Desktop is the conservative default when no signal matches.
+ */
+export function detectDeviceType(userAgent?: string): DeviceType {
+  const ua = userAgent ?? (typeof navigator !== 'undefined' ? navigator.userAgent : '');
+  if (/(tablet|ipad)/i.test(ua)) return 'tablet';
+  if (/(mobile|iphone|ipod|android)/i.test(ua)) return 'mobile';
+  return 'desktop';
+}
 
 /**
  * Base payload fields (`docs/analytics-spec.md` §3.1) shared by every
- * event. The frontend always runs in a browser, so `platform` is the fixed
- * value "web". Additional base fields can be appended here as they land.
+ * event: `app_version`, `user_agent`, `device_type`, `referrer`, and the
+ * fixed frontend `platform` value "web". Each field degrades gracefully
+ * when the browser API it depends on is unavailable (SSR, unit tests
+ * without a DOM).
  */
 export function buildBasePayload(): EventProps {
-  return { platform: 'web' };
+  return {
+    app_version: appVersion(),
+    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    device_type: detectDeviceType(),
+    referrer: typeof document !== 'undefined' && document.referrer ? document.referrer : null,
+    platform: 'web',
+  };
 }
 
 function track(event: ClaimEvent, props?: EventProps): void {
