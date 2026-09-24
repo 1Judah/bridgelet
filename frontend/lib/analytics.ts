@@ -4,8 +4,10 @@ type ClaimEvent =
   | 'claim_initiated'
   | 'claim_success'
   | 'claim_error'
+  | 'Claim Page Opened'
+  | 'Payment Details Viewed'
   | 'Page Viewed'
-  | 'Send Form Viewed';
+  | 'Send Form Viewed'
   | 'Claim Verified'
   | 'Claim CTA Clicked';
 
@@ -40,6 +42,11 @@ function track(event: ClaimEvent, props?: EventProps): void {
 }
 
 export type EntrySource = 'direct' | 'referral' | 'shared_link' | 'unknown';
+
+export type ClaimEntryChannel = 'sms' | 'email' | 'whatsapp' | 'direct' | 'unknown';
+
+export type PaymentClaimStatus = 'unclaimed' | 'claimed' | 'expired';
+
 interface ClaimVerifiedProps {
   claimId: string;
   assetType?: string;
@@ -63,6 +70,30 @@ export const analytics = {
   claimInitiated: () => track('claim_initiated'),
   claimSuccess: () => track('claim_success'),
   claimError: (reason: string) => track('claim_error', { reason }),
+  claimPageOpened: ({
+    claimId,
+    entryChannel,
+  }: {
+    claimId: string;
+    entryChannel: ClaimEntryChannel;
+  }) =>
+    track('Claim Page Opened', {
+      journey: 'recipient',
+      claim_id: claimId,
+      entry_channel: entryChannel,
+    }),
+  paymentDetailsViewed: ({
+    claimId,
+    claimStatus,
+  }: {
+    claimId: string;
+    claimStatus: PaymentClaimStatus;
+  }) =>
+    track('Payment Details Viewed', {
+      journey: 'sender',
+      claim_id: claimId,
+      claim_status: claimStatus,
+    }),
   pageViewed: ({ page, entrySource }: { page: string; entrySource?: EntrySource }) =>
     track('Page Viewed', {
       journey: 'sender',
