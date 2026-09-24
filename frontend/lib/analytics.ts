@@ -4,6 +4,8 @@ type ClaimEvent =
   | 'claim_initiated'
   | 'claim_success'
   | 'claim_error'
+  | 'Page Viewed'
+  | 'Send Form Viewed';
   | 'Claim Verified'
   | 'Claim CTA Clicked';
 
@@ -25,6 +27,7 @@ function track(event: ClaimEvent, props?: EventProps): void {
   }
 }
 
+export type EntrySource = 'direct' | 'referral' | 'shared_link' | 'unknown';
 interface ClaimVerifiedProps {
   claimId: string;
   assetType?: string;
@@ -48,6 +51,13 @@ export const analytics = {
   claimInitiated: () => track('claim_initiated'),
   claimSuccess: () => track('claim_success'),
   claimError: (reason: string) => track('claim_error', { reason }),
+  pageViewed: ({ page, entrySource }: { page: string; entrySource?: EntrySource }) =>
+    track('Page Viewed', {
+      journey: 'sender',
+      page,
+      ...(entrySource ? { entry_source: entrySource } : {}),
+    }),
+  sendFormViewed: () => track('Send Form Viewed', { journey: 'sender' }),
   claimVerified: ({
     claimId,
     assetType,
