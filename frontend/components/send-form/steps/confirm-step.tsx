@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SendFormState } from '../index';
 import { useNfc } from '@/hooks/use-nfc';
 import { BridgeletClient, RateLimitError } from '@/lib/create-bridgelet-client';
@@ -75,6 +75,13 @@ export function ConfirmStep({ state, onBack }: ConfirmStepProps) {
   const confirmedAt = useRef<number | null>(null);
 
   const submitting = submitPhase !== 'idle' && submitPhase !== 'success';
+
+  useEffect(() => {
+    analytics.paymentConfirmationViewed({
+      assetType: state.assetCode,
+      expiryDays: state.expiresInHours / 24,
+    });
+  }, [state.assetCode, state.expiresInHours]);
 
   function buildCreateAccountPayload() {
     return {

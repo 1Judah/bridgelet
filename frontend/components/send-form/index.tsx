@@ -65,7 +65,16 @@ export function SendForm() {
   function goNext() {
     const idx = STEP_ORDER.indexOf(step);
     const next = STEP_ORDER[idx + 1];
-    if (next) setStep(next);
+    if (!next) return;
+    if (step === 'details') {
+      analytics.sendFormCompleted({
+        assetType: formState.assetCode,
+        expiryDays: formState.expiresInHours / 24,
+        hasRecipientName: Boolean(formState.recipientName),
+        hasMessage: Boolean(formState.memo),
+      });
+    }
+    setStep(next);
   }
 
   function goBack() {
